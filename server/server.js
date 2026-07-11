@@ -4,6 +4,8 @@ import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import organizationRoutes from "./routes/organizationRoutes.js";
 import serviceRoutes from "./routes/serviceRoutes.js";
+import queueRoutes from "./routes/queueRoutes.js";
+
 
 dotenv.config();
 
@@ -17,6 +19,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/services", serviceRoutes);
+app.use("/api/queue", queueRoutes);
 
 app.get("/", (req, res) => {
   res.send("🚀 SmartQueue API is running...");
