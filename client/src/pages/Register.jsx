@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+
 import { registerUser } from "../services/authApi";
 
 const Register = () => {
@@ -24,12 +25,11 @@ const Register = () => {
     e.preventDefault();
 
     try {
-      const { data } = await registerUser(formData);
+      await registerUser(formData);
 
-      toast.success(data.message);
+      toast.success("Registration Successful");
 
       navigate("/login");
-
     } catch (error) {
       toast.error(
         error.response?.data?.message || "Registration Failed"
@@ -38,9 +38,9 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex justify-center items-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
 
-      <div className="bg-white shadow-xl rounded-xl p-8 w-96">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-96">
 
         <h2 className="text-3xl font-bold text-center mb-6">
           Register
@@ -51,8 +51,8 @@ const Register = () => {
           <input
             type="text"
             name="name"
-            placeholder="Full Name"
-            className="w-full border p-3 rounded mb-3"
+            placeholder="Name"
+            className="w-full border p-3 rounded mb-4"
             onChange={handleChange}
           />
 
@@ -60,15 +60,15 @@ const Register = () => {
             type="email"
             name="email"
             placeholder="Email"
-            className="w-full border p-3 rounded mb-3"
+            className="w-full border p-3 rounded mb-4"
             onChange={handleChange}
           />
 
           <input
             type="text"
             name="phone"
-            placeholder="Phone Number"
-            className="w-full border p-3 rounded mb-3"
+            placeholder="Phone"
+            className="w-full border p-3 rounded mb-4"
             onChange={handleChange}
           />
 

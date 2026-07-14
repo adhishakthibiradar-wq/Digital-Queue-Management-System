@@ -251,6 +251,50 @@ export const getDashboard = async (req, res) => {
   }
 };
 
+export const getMyQueue = async (req, res) => {
+  try {
+    const queue = await Queue.findOne({
+      user: req.user.id,
+      status: { $in: ["Waiting", "Serving"] },
+    })
+      .populate("organization", "name")
+      .populate("service", "serviceName")
+      .sort({ createdAt: -1 });
+
+    if (!queue) {
+      return res.status(404).json({
+        success: false,
+        message: "No active queue found",
+      });
+    }
+
+    const queuePosition = await Queue.countDocuments({
+      organization: queue.organization._id,
+      service: queue.service._id,
+      status: "Waiting",
+      tokenNumber: { $lt: queue.tokenNumber },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        tokenId: queue._id,
+        tokenNumber: queue.tokenNumber,
+        organization: queue.organization.name,
+        service: queue.service.serviceName,
+        status: queue.status,
+        estimatedWaitTime: queue.estimatedWaitTime,
+        queuePosition: queuePosition + 1,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const cancelToken = async (req, res) => {
   try {
     const { queueId } = req.params;
