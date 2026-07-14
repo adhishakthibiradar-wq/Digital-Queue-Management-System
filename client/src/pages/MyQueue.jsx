@@ -4,21 +4,28 @@ import { getMyQueue, cancelToken } from "../services/queueApi";
 
 const MyQueue = () => {
   const [queue, setQueue] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchQueue();
   }, []);
 
   const fetchQueue = async () => {
-    try {
-      const { data } = await getMyQueue();
-      setQueue(data.data);
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message || "No Active Queue"
-      );
+  try {
+    setLoading(true);
+
+    const { data } = await getMyQueue();
+    setQueue(data.data);
+  } catch (error) {
+    setQueue(null);
+
+    if (error.response?.status !== 404) {
+      toast.error("Failed to load queue");
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleCancel = async () => {
     try {
@@ -31,6 +38,14 @@ const MyQueue = () => {
       toast.error("Unable to cancel token");
     }
   };
+
+  if (loading) {
+  return (
+    <div className="min-h-screen flex justify-center items-center">
+      <h2 className="text-xl font-semibold">Loading...</h2>
+    </div>
+  );
+}
 
   if (!queue) {
     return (
@@ -45,7 +60,7 @@ const MyQueue = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex justify-center items-center">
 
-      <div className="bg-white shadow-lg rounded-xl p-8 w-[450px]">
+      <div className="bg-white shadow-lg rounded-xl p-8 max-w-md w-full">
 
         <h1 className="text-3xl font-bold text-center mb-6">
           My Queue
