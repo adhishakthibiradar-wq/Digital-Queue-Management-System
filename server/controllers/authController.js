@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import { generateJwtToken } from "../utils/token.js";
+import { sendError } from "../utils/responses.js";
 
 export const registerUser = async (req, res) => {
   try {
@@ -8,20 +9,14 @@ export const registerUser = async (req, res) => {
 
     // Check if all fields are provided
     if (!name || !email || !password || !phone) {
-      return res.status(400).json({
-        success: false,
-        message: "All fields are required",
-      });
+      return sendError(res, 400, "All fields are required");
     }
 
     // Check if email already exists
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: "User already exists",
-      });
+      return sendError(res, 400, "User already exists");
     }
 
     // Hash password
@@ -45,10 +40,7 @@ export const registerUser = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return sendError(res, 500, error.message);
   }
 };
 
@@ -58,43 +50,24 @@ export const loginUser = async (req, res) => {
 
     // Check required fields
     if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
+      return sendError(res, 400, "Email and password are required");
     }
 
     // Find user
     const user = await User.findOne({ email });
 
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
+      return sendError(res, 401, "Invalid email or password");
     }
 
     // Compare password
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid email or password",
-      });
+      return sendError(res, 401, "Invalid email or password");
     }
 
-    // Generate JWT
-    const token = jwt.sign(
-      {
-        id: user._id,
-        role: user.role,
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "7d",
-      }
-    );
+    const token = generateJwtToken(user);
 
     // Remove password from response
     const userResponse = user.toObject();
@@ -108,9 +81,6 @@ export const loginUser = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return sendError(res, 500, error.message);
   }
 };

@@ -1,5 +1,6 @@
 import Queue from "../models/Queue.js";
 import Service from "../models/Service.js";
+import { calculateEstimatedWaitTime } from "../utils/queue.js";
 
 const recalculateWaitingEstimatedTimes = async ({ organizationId, serviceId }) => {
   const service = await Service.findById(serviceId);
@@ -56,7 +57,7 @@ export const generateToken = async (req, res) => {
 
     const tokenNumber = waitingCount + 1;
     const averageTime = Number(selectedService.averageTime ?? 0);
-    const estimatedWaitTime = waitingCount * averageTime;
+    const estimatedWaitTime = calculateEstimatedWaitTime(waitingCount, averageTime);
 
     console.log("[queue] generating token", {
       organization,
