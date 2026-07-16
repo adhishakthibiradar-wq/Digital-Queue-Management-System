@@ -16,6 +16,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const buildDisplayToken = (item) => {
     const organizationName = item.organization?.name || item.organizationName || "ORG";
@@ -35,6 +36,11 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    if (!isAdmin) {
+      setLoading(false);
+      return;
+    }
+
     fetchDashboard();
 
     const refreshQueue = () => {
@@ -43,7 +49,7 @@ const Dashboard = () => {
 
     window.addEventListener("queue:updated", refreshQueue);
     return () => window.removeEventListener("queue:updated", refreshQueue);
-  }, []);
+  }, [isAdmin]);
 
   const fetchDashboard = async () => {
     setLoading(true);
@@ -167,7 +173,7 @@ const Dashboard = () => {
     }
   };
 
-  const handleDeleteToken = async (item) => {
+  const openDeleteModal = (item) => {
     const itemKey = item?.itemKey || item?._id;
 
     if (!itemKey) {
@@ -175,18 +181,32 @@ const Dashboard = () => {
       return;
     }
 
-    const confirmed = window.confirm("Delete this queue record?");
+    setDeleteTarget(item);
+  };
 
-    if (!confirmed) {
+  const closeDeleteModal = () => {
+    setDeleteTarget(null);
+  };
+
+  const handleDeleteToken = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+
+    const itemKey = deleteTarget?.itemKey || deleteTarget?._id;
+
+    if (!itemKey) {
+      toast.error("No token selected");
       return;
     }
 
     try {
       setProcessing(true);
-      await deleteQueue(item._id || itemKey);
+      await deleteQueue(deleteTarget._id || itemKey);
       setQueueItems((previousItems) => previousItems.filter((queueItem) => (queueItem.itemKey || queueItem._id) !== itemKey));
       window.dispatchEvent(new Event("queue:updated"));
       toast.success("Queue record deleted successfully");
+      closeDeleteModal();
     } catch (err) {
       if (err.response?.status === 403) {
         setError("Access Denied - Admin Only");
@@ -203,13 +223,18 @@ const Dashboard = () => {
 
   if (!isAdmin) {
     return (
-      <div className="flex min-h-screen bg-slate-100">
-        <Sidebar />
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-            <h2 className="text-2xl font-semibold text-slate-900">Only Admin Can Access This Dashboard</h2>
-            <p className="mt-3 text-sm text-slate-600">Please sign in with an administrator account to view this page.</p>
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4">
+        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.72 3h16.92a2 2 0 001.72-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
           </div>
+          <h2 className="mt-6 text-2xl font-semibold text-slate-900">Access Denied</h2>
+          <p className="mt-3 text-sm text-slate-600">Only administrators can access this dashboard.</p>
+          <a href="/" className="mt-6 inline-flex rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700">
+            Go to Home
+          </a>
         </div>
       </div>
     );
@@ -289,10 +314,48 @@ const Dashboard = () => {
             isAdmin={isAdmin}
             onComplete={handleCompleteToken}
             onCancel={handleCancelToken}
-            onDelete={handleDeleteToken}
+            onDelete={openDeleteModal}
             emptyMessage="No queue activity to display right now."
           />
         </div>
+
+        {deleteTarget ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4 py-6">
+            <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.72 3h16.92a2 2 0 001.72-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Delete queue record?</h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    This action will permanently remove the selected queue entry from the dashboard.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeDeleteModal}
+                  className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteToken}
+                  disabled={processing}
+                  className="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300"
+                >
+                  {processing ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </div>
   );
