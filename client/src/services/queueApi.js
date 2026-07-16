@@ -12,8 +12,8 @@ export const getQueue = (organizationId, serviceId) => {
   return api.get(`/queue/${organizationId}/${serviceId}`);
 };
 
-export const callNextToken = (data) => {
-  return api.put("/queue/next", data);
+export const callNextToken = () => {
+  return api.put("/queue/next");
 };
 
 export const completeToken = (queueId) => {
@@ -22,6 +22,10 @@ export const completeToken = (queueId) => {
 
 export const cancelToken = (queueId) => {
   return api.put(`/queue/cancel/${queueId}`);
+};
+
+export const deleteQueue = (queueId) => {
+  return api.delete(`/queue/${queueId}`);
 };
 
 export const getDashboard = () => {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getMyQueue, cancelToken } from "../services/queueApi";
+import Loader from "../components/Loader";
 
 const MyQueue = () => {
   const [queue, setQueue] = useState(null);
@@ -31,6 +32,7 @@ const MyQueue = () => {
     try {
       await cancelToken(queue.tokenId);
 
+      window.dispatchEvent(new Event("queue:updated"));
       toast.success("Token Cancelled");
 
       setQueue(null);
@@ -46,7 +48,7 @@ const MyQueue = () => {
     </div>
   );
 }
-
+if (loading) return <Loader />; 
   if (!queue) {
     return (
       <div className="min-h-screen flex justify-center items-center">

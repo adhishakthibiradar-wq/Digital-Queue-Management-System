@@ -7,10 +7,16 @@ const GenerateToken = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { organizationId, serviceId } = location.state || {};
+  const { organizationId, serviceId, organizationName, serviceName } = location.state || {};
 
   const [loading, setLoading] = useState(false);
   const [tokenData, setTokenData] = useState(null);
+
+  const buildDisplayToken = (tokenNumber) => {
+    const organizationCode = (organizationName || "ORG").slice(0, 3).toUpperCase();
+    const serviceCode = (serviceName || "SRV").slice(0, 3).toUpperCase();
+    return `${organizationCode}-${serviceCode}-${tokenNumber}`;
+  };
 
   const handleGenerateToken = async () => {
     try {
@@ -23,6 +29,7 @@ const GenerateToken = () => {
 
       setTokenData(data.data);
 
+      window.dispatchEvent(new Event("queue:updated"));
       toast.success("Token Generated Successfully");
     } catch (error) {
       toast.error(
@@ -56,7 +63,7 @@ const GenerateToken = () => {
             <div className="bg-green-100 rounded-lg p-6 text-center">
 
               <h2 className="text-2xl font-bold">
-                Token #{tokenData.tokenNumber}
+                Token {buildDisplayToken(tokenData.tokenNumber)}
               </h2>
 
               <p className="mt-4">

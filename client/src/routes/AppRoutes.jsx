@@ -8,6 +8,9 @@ import NotFound from "../pages/NotFound";
 import Services from "../pages/Services";
 import GenerateToken from "../pages/GenerateToken";
 import MyQueue from "../pages/MyQueue";
+import Dashboard from "../pages/Dashboard";
+import ProtectedRoute from "../components/ProtectedRoute";
+import AdminRoute from "../components/AdminRoute";
 
 const AppRoutes = () => {
   return (
@@ -15,19 +18,57 @@ const AppRoutes = () => {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
-      <Route path="/organizations" element={<Organizations />} />
-      <Route path="*" element={<NotFound />} />
       <Route
-  path="/services/:organizationId"
-  element={<Services />}
-/>
-
-<Route
-  path="/generate-token"
-  element={<GenerateToken />}
-/>
-
-<Route path="/myqueue" element={<MyQueue />} />
+        path="/organizations"
+        element={
+          <ProtectedRoute>
+            <Organizations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/services"
+        element={
+          <ProtectedRoute>
+            <Services />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/services/:organizationId"
+        element={
+          <ProtectedRoute>
+            <Services />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/generate-token"
+        element={
+          <ProtectedRoute>
+            <GenerateToken />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/myqueue"
+        element={
+          <ProtectedRoute>
+            <MyQueue />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <AdminRoute>
+              <Dashboard />
+            </AdminRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };

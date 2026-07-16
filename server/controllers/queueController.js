@@ -1,6 +1,31 @@
 import Queue from "../models/Queue.js";
 import Service from "../models/Service.js";
 
+const recalculateWaitingEstimatedTimes = async ({ organizationId, serviceId }) => {
+  const service = await Service.findById(serviceId);
+  const averageTime = Number(service?.averageTime ?? 0);
+
+  if (!service || !Number.isFinite(averageTime) || averageTime <= 0) {
+    return;
+  }
+
+  const waitingQueues = await Queue.find({
+    organization: organizationId,
+    service: serviceId,
+    status: "Waiting",
+  }).sort({ tokenNumber: 1 });
+
+  for (let index = 0; index < waitingQueues.length; index += 1) {
+    const queueItem = waitingQueues[index];
+    const estimatedWaitTime = index * averageTime;
+
+    if (queueItem.estimatedWaitTime !== estimatedWaitTime) {
+      queueItem.estimatedWaitTime = estimatedWaitTime;
+      await queueItem.save();
+    }
+  }
+};
+
 export const generateToken = async (req, res) => {
   try {
     const { organization, service } = req.body;
@@ -23,27 +48,35 @@ export const generateToken = async (req, res) => {
       });
     }
 
-    // Count waiting customers
     const waitingCount = await Queue.countDocuments({
       organization,
       service,
       status: "Waiting",
     });
 
-    // Generate token number
     const tokenNumber = waitingCount + 1;
+    const averageTime = Number(selectedService.averageTime ?? 0);
+    const estimatedWaitTime = waitingCount * averageTime;
 
-    // Calculate waiting time
-    const estimatedWaitTime =
-      waitingCount * selectedService.averageTime;
+    console.log("[queue] generating token", {
+      organization,
+      service,
+      averageTime,
+      waitingCount,
+      estimatedWaitTime,
+    });
 
-    // Save queue
     const queue = await Queue.create({
       organization,
       service,
       user: req.user.id,
       tokenNumber,
       estimatedWaitTime,
+    });
+
+    await recalculateWaitingEstimatedTimes({
+      organizationId: organization,
+      serviceId: service,
     });
 
     await queue.populate("organization", "name");
@@ -103,12 +136,7 @@ export const getQueue = async (req, res) => {
 
 export const callNextToken = async (req, res) => {
   try {
-    const { organization, service } = req.body;
-
-    // Check if someone is already being served
     const servingToken = await Queue.findOne({
-      organization,
-      service,
       status: "Serving",
     });
 
@@ -119,10 +147,7 @@ export const callNextToken = async (req, res) => {
       });
     }
 
-    // Find the next waiting token
     const nextToken = await Queue.findOne({
-      organization,
-      service,
       status: "Waiting",
     }).sort({ tokenNumber: 1 });
 
@@ -136,7 +161,12 @@ export const callNextToken = async (req, res) => {
     nextToken.status = "Serving";
     await nextToken.save();
 
-    res.status(200).json({
+    await recalculateWaitingEstimatedTimes({
+      organizationId: nextToken.organization,
+      serviceId: nextToken.service,
+    });
+
+    res.json({
       success: true,
       message: "Next token called successfully",
       token: nextToken,
@@ -172,6 +202,11 @@ export const completeToken = async (req, res) => {
     queue.status = "Completed";
     await queue.save();
 
+    await recalculateWaitingEstimatedTimes({
+      organizationId: queue.organization,
+      serviceId: queue.service,
+    });
+
     res.status(200).json({
       success: true,
       message: "Token completed successfully",
@@ -187,61 +222,46 @@ export const completeToken = async (req, res) => {
 
 export const getDashboard = async (req, res) => {
   try {
-    const { organization, service } = req.query;
 
-    // Current Serving Token
     const currentServing = await Queue.findOne({
-      organization,
-      service,
       status: "Serving",
     })
       .populate("user", "name")
       .sort({ tokenNumber: 1 });
 
-    // Next Waiting Token
     const nextWaiting = await Queue.findOne({
-      organization,
-      service,
       status: "Waiting",
     }).sort({ tokenNumber: 1 });
 
-    // Counts
     const waitingCount = await Queue.countDocuments({
-      organization,
-      service,
       status: "Waiting",
     });
 
     const completedCount = await Queue.countDocuments({
-      organization,
-      service,
       status: "Completed",
     });
 
-    const totalTokens = await Queue.countDocuments({
-      organization,
-      service,
+    const totalTokens = await Queue.countDocuments();
+
+    res.json({
+      success: true,
+      dashboard: {
+        currentServing: currentServing
+          ? {
+              tokenNumber: currentServing.tokenNumber,
+              customer: currentServing.user.name,
+            }
+          : null,
+
+        nextToken: nextWaiting
+          ? nextWaiting.tokenNumber
+          : null,
+
+        waitingCount,
+        completedCount,
+        totalTokens,
+      },
     });
-
-    res.status(200).json({
-  success: true,
-  dashboard: {
-    currentServing: currentServing
-      ? {
-          tokenNumber: currentServing.tokenNumber,
-          customer: currentServing.user.name,
-        }
-      : null,
-
-    nextToken: nextWaiting
-      ? nextWaiting.tokenNumber
-      : null,
-
-    waitingCount,
-    completedCount,
-    totalTokens,
-  },
-});
 
   } catch (error) {
     res.status(500).json({
@@ -329,12 +349,44 @@ export const cancelToken = async (req, res) => {
     queue.status = "Cancelled";
     await queue.save();
 
+    await recalculateWaitingEstimatedTimes({
+      organizationId: queue.organization,
+      serviceId: queue.service,
+    });
+
     res.status(200).json({
       success: true,
       message: "Token cancelled successfully",
       queue,
     });
 
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const deleteQueue = async (req, res) => {
+  try {
+    const { queueId } = req.params;
+
+    const queue = await Queue.findById(queueId);
+
+    if (!queue) {
+      return res.status(404).json({
+        success: false,
+        message: "Queue token not found",
+      });
+    }
+
+    await Queue.findByIdAndDelete(queueId);
+
+    res.status(200).json({
+      success: true,
+      message: "Queue record deleted successfully",
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
