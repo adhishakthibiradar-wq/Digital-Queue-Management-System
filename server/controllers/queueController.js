@@ -49,13 +49,18 @@ export const generateToken = async (req, res) => {
       });
     }
 
-    const waitingCount = await Queue.countDocuments({
-      organization,
-      service,
-      status: "Waiting",
-    });
+    const lastToken = await Queue.findOne({
+  organization,
+  service,
+}).sort({ tokenNumber: -1 });
 
-    const tokenNumber = waitingCount + 1;
+const tokenNumber = lastToken ? lastToken.tokenNumber + 1 : 1;
+
+const waitingCount = await Queue.countDocuments({
+  organization,
+  service,
+  status: "Waiting",
+});
     const averageTime = Number(selectedService.averageTime ?? 0);
     const estimatedWaitTime = calculateEstimatedWaitTime(waitingCount, averageTime);
 
@@ -274,39 +279,59 @@ export const getDashboard = async (req, res) => {
 
 export const getMyQueue = async (req, res) => {
   try {
-    const queue = await Queue.findOne({
-      user: req.user.id,
-      status: { $in: ["Waiting", "Serving"] },
-    })
+    const userId = req.user?.id || req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User not authenticated",
+      });
+    }
+
+    const queues = await Queue.find({ user: userId })
       .populate("organization", "name")
       .populate("service", "serviceName")
       .sort({ createdAt: -1 });
 
-    if (!queue) {
-      return res.status(404).json({
-        success: false,
-        message: "No active queue found",
+    if (!queues.length) {
+      return res.json({
+        success: true,
+        queues: [],
+        data: [],
       });
     }
 
-    const queuePosition = await Queue.countDocuments({
-      organization: queue.organization._id,
-      service: queue.service._id,
-      status: "Waiting",
-      tokenNumber: { $lt: queue.tokenNumber },
-    });
+    const history = await Promise.all(
+      queues.map(async (queue) => {
+        let queuePosition = null;
+
+        if (queue.status === "Waiting") {
+          queuePosition =
+            (await Queue.countDocuments({
+              organization: queue.organization._id,
+              service: queue.service._id,
+              status: "Waiting",
+              tokenNumber: { $lt: queue.tokenNumber },
+            })) + 1;
+        }
+
+        return {
+          tokenId: queue._id,
+          tokenNumber: queue.tokenNumber,
+          organization: queue.organization?.name ?? "—",
+          service: queue.service?.serviceName ?? "—",
+          status: queue.status,
+          estimatedWaitTime: queue.estimatedWaitTime,
+          queuePosition,
+          createdAt: queue.createdAt ? new Date(queue.createdAt).toISOString() : null,
+        };
+      })
+    );
 
     res.json({
       success: true,
-      data: {
-        tokenId: queue._id,
-        tokenNumber: queue.tokenNumber,
-        organization: queue.organization.name,
-        service: queue.service.serviceName,
-        status: queue.status,
-        estimatedWaitTime: queue.estimatedWaitTime,
-        queuePosition: queuePosition + 1,
-      },
+      queues: history,
+      data: history,
     });
   } catch (error) {
     res.status(500).json({

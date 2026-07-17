@@ -2,7 +2,6 @@ import jwt from "jsonwebtoken";
 
 export const protect = (req, res, next) => {
   try {
-    console.log(req.headers);
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -13,10 +12,14 @@ export const protect = (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id || decoded._id || decoded.userId;
 
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      id: userId,
+      _id: userId,
+    };
 
     next();
   } catch (error) {
