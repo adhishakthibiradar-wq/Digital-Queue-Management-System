@@ -23,6 +23,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "https://digital-queue-management-system-rho.vercel.app",
+      "https://digital-queue-management-system-ih9p8ertm.vercel.app",
     ],
     credentials: true,
   })
