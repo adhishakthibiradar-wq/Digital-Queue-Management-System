@@ -31,6 +31,7 @@ Use the following credentials to access the Admin Dashboard:
 
 **Password:** `Admin@123`
 
+link : https://digital-queue-management-system-rho.vercel.app/
  
 ## Author
 
